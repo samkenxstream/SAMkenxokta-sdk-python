@@ -38,9 +38,21 @@ class {{pascalCase model.modelName}}(
     An enumeration class for {{pascalCase model.modelName}}.
     """
 
-    {{#each model.enum as |enum|}}
+    {{!-- Handle special cases within OAuthGrantType --}}
+    {{#if (eq model.modelName "OAuthGrantType")}}
+        {{#each model.enum as |enum|}}
+            {{#if (isUrnGrantType enum)}}
+    {{{replaceColons (upperCase (snakeCase enum))}}} = "{{prefixUrnGrantType enum}}", "{{oppositeCase (prefixUrnGrantType enum)}}"
+            {{else}}
     {{{replaceColons (upperCase (snakeCase enum))}}} = "{{enum}}", "{{oppositeCase enum}}"
-    {{/each}}
+            {{/if}}
+        {{/each}}
+    {{else}}
+        {{!-- Handle general multiValueEnum types --}}
+        {{#each model.enum as |enum|}}
+    {{{replaceColons (upperCase (snakeCase enum))}}} = "{{enum}}", "{{oppositeCase enum}}"
+        {{/each}}
+    {{/if}}
 {{/if}}
 {{else}}
 
@@ -50,7 +62,7 @@ from okta.models.{{snakeCase model.extends}}\
 {{else}}
 from okta.okta_object import OktaObject
 {{/if}}
-{{#if (eq model.modelName "UserProfile")}}
+{{#if (or (eq model.modelName "UserProfile") (eq model.modelName "GroupProfile"))}}
 
 from okta.helpers import to_snake_case, to_lower_camel_case
 {{/if}}
@@ -79,7 +91,7 @@ class {{pascalCase model.modelName}}(
     """
     A class for {{pascalCase model.modelName}} objects.
     """
-    {{#if (eq model.modelName "UserProfile")}}
+    {{#if (or (eq model.modelName "UserProfile") (eq model.modelName "GroupProfile"))}}
 
     BASIC_ATTRIBUTES = (
         {{#each model.properties as |prop|}}
@@ -150,12 +162,16 @@ class {{pascalCase model.modelName}}(
             {{/if}}
             {{/if}}
             {{/if}}
+            {{#if (or (eq prop.propertyName "$schema") (eq prop.propertyName "_links"))}}
+            if "{{prop.propertyName}}" in config:
+                self.{{snakeCase prop.propertyName}} = config["{{prop.propertyName}}"]
+            {{/if}}
             {{/each}}
-            {{#if (eq model.modelName "UserProfile")}}
+            {{#if (or (eq model.modelName "UserProfile") (eq model.modelName "GroupProfile"))}}
             # set custom attributes not defined in model, do not change string case
             for attr_name in config:
                 lower_camel_case = to_lower_camel_case(attr_name)
-                if lower_camel_case not in UserProfile.BASIC_ATTRIBUTES:
+                if lower_camel_case not in {{model.modelName}}.BASIC_ATTRIBUTES:
                     setattr(self, attr_name, config[attr_name])
             {{/if}}
         else:
@@ -186,7 +202,7 @@ class {{pascalCase model.modelName}}(
             {{/each}}
         }
         {{/if}}
-        {{#if (eq model.modelName "UserProfile")}}
+        {{#if (or (eq model.modelName "UserProfile") (eq model.modelName "GroupProfile"))}}
         available_attrs = vars(self)
         for attr in available_attrs:
             # do not allow overriding of base attributes
@@ -195,7 +211,7 @@ class {{pascalCase model.modelName}}(
         {{/if}}
         parent_req_format.update(current_obj_format)
         return parent_req_format
-    {{#if (eq model.modelName "UserProfile")}}
+    {{#if (or (eq model.modelName "UserProfile") (eq model.modelName "GroupProfile"))}}
 
     def __getattr__(self, attr_name):
         """
@@ -208,16 +224,16 @@ class {{pascalCase model.modelName}}(
         lower_camel_case = to_lower_camel_case(attr_name)
         if lower_camel_case in available_attrs:
             return available_attrs[lower_camel_case]
-        raise AttributeError(f"'UserProfile' object has no attribute '{attr_name}'")
+        raise AttributeError(f"'{{model.modelName}}' object has no attribute '{attr_name}'")
 
     def __setattr__(self, attr_name, attr_value):
         """
         Keep custom attributes unchanged and keep backward compatibility for basic attributes.
         """
         lower_camel_case = to_lower_camel_case(attr_name)
-        if lower_camel_case in UserProfile.BASIC_ATTRIBUTES:
-            super(UserProfile, self).__setattr__(lower_camel_case, attr_value)
+        if lower_camel_case in {{model.modelName}}.BASIC_ATTRIBUTES:
+            super({{model.modelName}}, self).__setattr__(lower_camel_case, attr_value)
         else:
-            super(UserProfile, self).__setattr__(attr_name, attr_value)
+            super({{model.modelName}}, self).__setattr__(attr_name, attr_value)
     {{/if}}
 {{/if}}
